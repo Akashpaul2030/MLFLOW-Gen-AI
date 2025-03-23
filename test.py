@@ -3,9 +3,19 @@ import openai
 import os
 import pandas as pd
 import dagshub
+from dotenv import load_dotenv
 
-dagshub.init(repo_owner='krishnaik06', repo_name='MLfLow', mlflow=True)
-mlflow.set_tracking_uri("https://dagshub.com/krishnaik06/MLfLow.mlflow")
+# Load environment variables from .env file
+load_dotenv()
+
+# Set the OpenAI API key from the environment variable
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Initialize Dagshub and MLflow tracking
+dagshub.init(repo_owner='akashpaul2030', repo_name='MLfLow', mlflow=True)
+mlflow.set_tracking_uri("https://dagshub.com/akashpaul2030/MLfLow.mlflow")
+
+# Create evaluation data
 eval_data = pd.DataFrame(
     {
         "inputs": [
@@ -27,12 +37,17 @@ eval_data = pd.DataFrame(
         ],
     }
 )
+
+# Set up MLflow experiment
 mlflow.set_experiment("LLM Evaluation")
+
+# Start an MLflow run
 with mlflow.start_run() as run:
     system_prompt = "Answer the following question in two sentences"
-    # Wrap "gpt-4" as an MLflow model.
+    
+    # Wrap "gpt-4o-mini" as an MLflow model.
     logged_model_info = mlflow.openai.log_model(
-        model="gpt-4",
+        model="gpt-4o-mini",  # Use the correct model identifier if available
         task=openai.chat.completions,
         artifact_path="model",
         messages=[
@@ -41,19 +56,18 @@ with mlflow.start_run() as run:
         ],
     )
 
-    # Use predefined question-answering metrics to evaluate our model.
+    # Use predefined question-answering metrics to evaluate the model.
     results = mlflow.evaluate(
         logged_model_info.model_uri,
         eval_data,
         targets="ground_truth",
         model_type="question-answering",
-        extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency(),mlflow.metrics.genai.answer_similarity()]
+        extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency(), mlflow.metrics.genai.answer_similarity()]
     )
     print(f"See aggregated evaluation results below: \n{results.metrics}")
 
     # Evaluation result for each data record is available in `results.tables`.
     eval_table = results.tables["eval_results_table"]
-    df=pd.DataFrame(eval_table)
+    df = pd.DataFrame(eval_table)
     df.to_csv('eval.csv')
     print(f"See evaluation table below: \n{eval_table}")
-
